@@ -105,7 +105,7 @@ __global__ void transposeMatrix(int* input, int* output, int width, int height)
         tile[threadIdx.y][threadIdx.x] = input[index_in];
     }
 
-    __syncthreads();
+    //__syncthreads();
 
     x = blockIdx.y * blockDim.y + threadIdx.x;
     y = blockIdx.x * blockDim.x + threadIdx.y;
@@ -127,8 +127,8 @@ int main()
     CHECK(cudaSetDevice(dev));
 
     // Set up matrix dimensions
-    int width = 256;
-    int height = 256;
+    int width = 5;
+    int height = 5;
 
     size_t size = width * height * sizeof(int);
 
@@ -145,11 +145,11 @@ int main()
     // Allocate device memory for input and output matrices
     int* deviceInput;
     int* deviceOutput;
-    CHECK(cudaMalloc((void**)&deviceInput, size));
-    CHECK(cudaMalloc((void**)&deviceOutput, size));
+    cudaMalloc((void**)&deviceInput, size);
+    cudaMalloc((void**)&deviceOutput, size);
 
     // Copy input matrix from host to device
-    CHECK(cudaMemcpy(deviceInput, hostInput, size, cudaMemcpyHostToDevice));
+    cudaMemcpy(deviceInput, hostInput, size, cudaMemcpyHostToDevice);
 
     // Define block and grid dimensions
     dim3 block(BDIMX, BDIMY);
@@ -157,25 +157,28 @@ int main()
 
     // Create CUDA events for timing
     cudaEvent_t start, stop;
-    CHECK(cudaEventCreate(&start));
-    CHECK(cudaEventCreate(&stop));
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
 
     // Perform matrix transpose using shared memory
-    CHECK(cudaEventRecord(start, 0));
+    cudaEventRecord(start, 0);
     transposeMatrix << <grid, block >> > (deviceInput, deviceOutput, width, height);
-    CHECK(cudaEventRecord(stop, 0));
-    CHECK(cudaEventSynchronize(stop));
+    cudaEventRecord(stop, 0);
+    cudaEventSynchronize(stop);
 
     // Copy output matrix from device to host
-    CHECK(cudaMemcpy(hostOutput, deviceOutput, size, cudaMemcpyDeviceToHost));
+    cudaMemcpy(hostOutput, deviceOutput, size, cudaMemcpyDeviceToHost);
 
     // Verify the results
     verifyResults(hostInput, hostOutput, width, height);
 
     // Compute the elapsed time
     float elapsedTime;
-    CHECK(cudaEventElapsedTime(&elapsedTime, start, stop));
+    cudaEventElapsedTime(&elapsedTime, start, stop);
     printf("Shared Memory Transpose Time: %.5f ms\n", elapsedTime);
+
+    printMatrix("Input Matrix", hostInput, width, height);
+    printMatrix("Output Matrix", hostOutput, height, width);
 
     // Free host and device memory
     free(hostInput);
